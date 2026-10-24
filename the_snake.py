@@ -2,7 +2,7 @@
 
 Модуль содержит классы игровых объектов и основной игровой цикл.
 """
-from random import choice, randint
+from random import choice
 
 import pygame
 
@@ -11,6 +11,9 @@ SCREEN_WIDTH, SCREEN_HEIGHT = 640, 480
 GRID_SIZE = 20
 GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
+
+# Центр экрана — глобальная константа, чтобы не дублировать:
+SCREEN_CENTER = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 
 # Направления движения:
 UP = (0, -1)
@@ -51,7 +54,7 @@ class GameObject:
 
         :param body_color: цвет объекта в формате RGB.
         """
-        self.position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+        self.position = SCREEN_CENTER
         self.body_color = body_color
 
     def draw_cell(self, position, color):
@@ -71,17 +74,31 @@ class GameObject:
 class Apple(GameObject):
     """Яблоко — игровой объект, который съедает змейка."""
 
-    def __init__(self):
-        """Создаёт яблоко в случайной клетке поля."""
-        super().__init__(APPLE_COLOR)
-        self.randomize_position()
+    def __init__(self, occupied_positions=None):
+        """Создаёт яблоко в случайной свободной клетке поля.
 
-    def randomize_position(self):
-        """Перемещает яблоко в случайную клетку поля."""
-        self.position = (
-            randint(0, GRID_WIDTH - 1) * GRID_SIZE,
-            randint(0, GRID_HEIGHT - 1) * GRID_SIZE,
-        )
+        :param occupied_positions: занятые клетки,
+        куда яблоко не должно попасть.
+        """
+        super().__init__(APPLE_COLOR)
+        self.randomize_position(occupied_positions)
+
+    def randomize_position(self, occupied_positions=None):
+        """Перемещает яблоко в случайную клетку, свободную от змейки.
+
+        :param occupied_positions: занятые клетки,
+        куда яблоко не должно попасть.
+        """
+        occupied = set(occupied_positions or ())
+        free_cells = [
+            (x * GRID_SIZE, y * GRID_SIZE)
+            for x in range(GRID_WIDTH)
+            for y in range(GRID_HEIGHT)
+            if (x * GRID_SIZE, y * GRID_SIZE) not in occupied
+        ]
+        # Если свободных клеток нет — оставляем яблоко на месте:
+        if free_cells:
+            self.position = choice(free_cells)
 
     def draw(self):
         """Отрисовывает яблоко на экране."""
@@ -92,15 +109,9 @@ class Snake(GameObject):
     """Змейка — основной управляемый объект игры."""
 
     def __init__(self):
-        """Создаёт змейку из одного сегмента в центре поля."""
+        """Создаёт змейку и приводит её в начальное состояние."""
         super().__init__(SNAKE_COLOR)
-        start_position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        self.position = start_position
-        self.positions = [start_position]
-        self.length = 1
-        self.direction = RIGHT
-        self.next_direction = None
-        self.last = None
+        self.reset()
 
     def get_head_position(self):
         """Возвращает координаты головы змейки."""
@@ -135,9 +146,8 @@ class Snake(GameObject):
 
     def reset(self):
         """Возвращает змейку в начальное состояние."""
-        start_position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
-        self.position = start_position
-        self.positions = [start_position]
+        self.position = SCREEN_CENTER
+        self.positions = [SCREEN_CENTER]
         self.length = 1
         self.direction = choice([UP, DOWN, LEFT, RIGHT])
         self.next_direction = None
@@ -178,7 +188,7 @@ def main():
     pygame.init()
 
     snake = Snake()
-    apple = Apple()
+    apple = Apple(snake.positions)
 
     while True:
         clock.tick(SPEED)
@@ -186,15 +196,15 @@ def main():
         handle_keys(snake)
         snake.move()
 
-        if snake.get_head_position() == apple.position:
-            snake.length += 1
-            apple.randomize_position()
-
         head = snake.get_head_position()
-        if head in snake.positions[1:]:
+
+        if head == apple.position:
+            snake.length += 1
+            apple.randomize_position(snake.positions)
+        elif head in snake.positions[4:]:
             snake.reset()
             screen.fill(BOARD_BACKGROUND_COLOR)
-            apple.randomize_position()
+            apple.randomize_position(snake.positions)
 
         apple.draw()
         snake.draw()
