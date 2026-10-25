@@ -15,6 +15,13 @@ GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
 # Центр экрана — глобальная константа, чтобы не дублировать:
 SCREEN_CENTER = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 
+# Множество всех клеток поля (строится один раз при импорте):
+ALL_CELLS = frozenset(
+    (x * GRID_SIZE, y * GRID_SIZE)
+    for x in range(GRID_WIDTH)
+    for y in range(GRID_HEIGHT)
+)
+
 # Направления движения:
 UP = (0, -1)
 DOWN = (0, 1)
@@ -90,15 +97,10 @@ class Apple(GameObject):
         куда яблоко не должно попасть.
         """
         occupied = set(occupied_positions or ())
-        free_cells = [
-            (x * GRID_SIZE, y * GRID_SIZE)
-            for x in range(GRID_WIDTH)
-            for y in range(GRID_HEIGHT)
-            if (x * GRID_SIZE, y * GRID_SIZE) not in occupied
-        ]
+        free_cells = ALL_CELLS - occupied
         # Если свободных клеток нет — оставляем яблоко на месте:
         if free_cells:
-            self.position = choice(free_cells)
+            self.position = choice(tuple(free_cells))
 
     def draw(self):
         """Отрисовывает яблоко на экране."""
@@ -112,6 +114,8 @@ class Snake(GameObject):
         """Создаёт змейку и приводит её в начальное состояние."""
         super().__init__(SNAKE_COLOR)
         self.reset()
+        # По ТЗ в начале игры змейка всегда движется вправо:
+        self.direction = RIGHT
 
     def get_head_position(self):
         """Возвращает координаты головы змейки."""
